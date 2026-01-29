@@ -6,15 +6,18 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ MIDDLEWARE
+/* =======================
+   ✅ MIDDLEWARE (FIXED)
+   ======================= */
 app.use(cors({
-  origin: '*',
-  credentials: true
+  origin: '*'
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ SCHEMAS & MODELS
+/* =======================
+   ✅ SCHEMAS & MODELS
+   ======================= */
 const activitySchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
@@ -25,8 +28,8 @@ const complaintSchema = new mongoose.Schema({
   phoneNumber: { type: String, required: true },
   category: { type: String, required: true },
   description: { type: String, required: true },
-  status: { 
-    type: String, 
+  status: {
+    type: String,
     enum: ['pending', 'in-progress', 'completed'],
     default: 'pending'
   },
@@ -36,34 +39,45 @@ const complaintSchema = new mongoose.Schema({
 const Activity = mongoose.model('Activity', activitySchema);
 const Complaint = mongoose.model('Complaint', complaintSchema);
 
-// ✅ MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/naveen_seva')
-  .then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => console.log('❌ MongoDB Error:', err));
+/* =======================
+   ✅ MONGODB CONNECTION
+   ======================= */
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000
+})
+.then(() => console.log('✅ MongoDB Connected'))
+.catch(err => console.error('❌ MongoDB Error:', err));
 
-// ✅ HEALTH CHECK
+/* =======================
+   ✅ HEALTH CHECK
+   ======================= */
 app.get('/', (req, res) => {
   res.json({ message: '🚀 Naveen Seva Mitra Backend Running!' });
 });
 
-// ✅ COMPLAINT ROUTES (MOST IMPORTANT)
+/* =======================
+   ✅ COMPLAINT ROUTES
+   ======================= */
 app.post('/api/complaints', async (req, res) => {
   try {
-    console.log('📱 New Complaint:', req.body);
-    
+    const { phoneNumber, category, description, status } = req.body;
+
+    if (!phoneNumber || !category || !description) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
     const complaint = new Complaint({
-      phoneNumber: req.body.phoneNumber,
-      category: req.body.category,
-      description: req.body.description,
-      status: req.body.status || 'pending'
+      phoneNumber,
+      category,
+      description,
+      status: status || 'pending'
     });
-    
+
     const savedComplaint = await complaint.save();
-    console.log('✅ Complaint Saved:', savedComplaint._id);
     res.status(201).json(savedComplaint);
   } catch (error) {
     console.error('❌ Complaint Error:', error);
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -92,16 +106,20 @@ app.put('/api/complaints/:id/status', async (req, res) => {
       { status: req.body.status },
       { new: true }
     );
+
     if (!updatedComplaint) {
       return res.status(404).json({ message: 'Complaint not found' });
     }
+
     res.json(updatedComplaint);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
 
-// ✅ ACTIVITY ROUTES
+/* =======================
+   ✅ ACTIVITY ROUTES
+   ======================= */
 app.get('/api/activities', async (req, res) => {
   try {
     const activities = await Activity.find().sort({ date: -1 });
@@ -124,8 +142,8 @@ app.post('/api/activities', async (req, res) => {
 app.put('/api/activities/:id', async (req, res) => {
   try {
     const updatedActivity = await Activity.findByIdAndUpdate(
-      req.params.id, 
-      req.body, 
+      req.params.id,
+      req.body,
       { new: true }
     );
     res.json(updatedActivity);
@@ -143,13 +161,16 @@ app.delete('/api/activities/:id', async (req, res) => {
   }
 });
 
-// ✅ FIXED 404 Handler - Express v5 Compatible
+/* =======================
+   ✅ 404 HANDLER
+   ======================= */
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.originalUrl} not found` });
 });
 
+/* =======================
+   ✅ START SERVER
+   ======================= */
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📱 Test: http://localhost:${PORT}/`);
-  console.log(`📱 Complaints: http://localhost:${PORT}/api/complaints`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
